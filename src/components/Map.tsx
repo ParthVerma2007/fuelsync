@@ -114,7 +114,7 @@ const Map = ({ pumps, onPumpClick, selectedPump }: MapProps) => {
   return (
     <div 
       ref={mapContainer} 
-      className="w-full h-full"
+      className="w-full h-full z-0"
       style={{ background: 'hsl(220, 15%, 8%)' }}
     />
   );

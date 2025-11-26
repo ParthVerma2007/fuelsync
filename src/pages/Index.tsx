@@ -112,7 +112,7 @@ const Index = () => {
         )}
 
         {/* Compatibility Checker - Top Right */}
-        <div className="absolute top-4 right-4 w-80 z-20 hidden md:block">
+        <div className="absolute top-4 right-4 w-80 z-40 hidden md:block">
           <CompatibilityChecker />
         </div>
 

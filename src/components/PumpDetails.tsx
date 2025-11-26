@@ -22,7 +22,7 @@ const PumpDetails = ({ pump, onClose }: PumpDetailsProps) => {
   ];
 
   return (
-    <Card className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 z-20 bg-card/95 backdrop-blur-md border-2 border-primary/30 shadow-[0_0_30px_hsl(var(--primary)/0.3)] animate-in slide-in-from-bottom duration-300">
+    <Card className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 z-40 bg-card/95 backdrop-blur-md border-2 border-primary/30 shadow-[0_0_30px_hsl(var(--primary)/0.3)] animate-in slide-in-from-bottom duration-300">
       <div className="p-5 space-y-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
