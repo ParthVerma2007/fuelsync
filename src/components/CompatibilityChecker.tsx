@@ -13,7 +13,7 @@ const CompatibilityChecker = () => {
     if (!rcNumber.trim()) return;
     
     // Mock DVE logic as per requirements
-    if (rcNumber.toUpperCase() === "MH12A") {
+    if (rcNumber.toUpperCase() === "MH12JC2653") {
       setResult("High Risk: Seek E10");
     } else {
       setResult("Low Risk: E20 Compliant");
