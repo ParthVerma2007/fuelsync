@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { pumpsData, PumpData } from "@/data/pumpsData";
 import { geocodeAllPumps } from "@/services/geocodingService";
+import { seedFuelStations } from "@/services/stationService";
 import Map from "@/components/Map";
 import FuelFilter, { FuelType } from "@/components/FuelFilter";
 import PumpDetails from "@/components/PumpDetails";
 import CompatibilityChecker from "@/components/CompatibilityChecker";
-import { Fuel, Loader2 } from "lucide-react";
+import ReportFuelModal from "@/components/ReportFuelModal";
+import { Fuel, Loader2, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [pumps, setPumps] = useState<PumpData[]>(pumpsData);
@@ -23,6 +27,9 @@ const Index = () => {
         const geocoded = await geocodeAllPumps(pumpsData);
         setPumps(geocoded);
         setFilteredPumps(geocoded);
+        
+        // Seed fuel stations to database
+        await seedFuelStations();
         
         const geocodedCount = geocoded.filter(p => p.lat && p.lon).length;
         toast({
@@ -76,16 +83,16 @@ const Index = () => {
               <p className="text-xs text-muted-foreground font-mono">Smart City Fuel Mapping</p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="flex items-center gap-3">
+            <ReportFuelModal />
+            <Link to="/admin">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Shield className="w-4 h-4" />
+                DVE Admin
+              </Button>
+            </Link>
             <p className="text-sm font-mono text-muted-foreground">
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading...
-                </span>
-              ) : (
-                `${filteredPumps.length} Pumps`
-              )}
+              {loading ? "Loading..." : `${filteredPumps.length} Pumps`}
             </p>
           </div>
         </div>
