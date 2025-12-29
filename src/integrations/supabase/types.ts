@@ -14,7 +14,178 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      crowdsourced_reports: {
+        Row: {
+          anonymous_user_id: string
+          created_at: string
+          dve_score: number | null
+          fuel_type: string
+          id: string
+          is_rejected: boolean | null
+          is_verified: boolean | null
+          location_factor: number | null
+          rejection_reason: string | null
+          station_id: string
+          time_decay_factor: number | null
+          timestamp: string
+          trust_score_at_submission: number | null
+          user_lat: number
+          user_lon: number
+        }
+        Insert: {
+          anonymous_user_id: string
+          created_at?: string
+          dve_score?: number | null
+          fuel_type: string
+          id?: string
+          is_rejected?: boolean | null
+          is_verified?: boolean | null
+          location_factor?: number | null
+          rejection_reason?: string | null
+          station_id: string
+          time_decay_factor?: number | null
+          timestamp?: string
+          trust_score_at_submission?: number | null
+          user_lat: number
+          user_lon: number
+        }
+        Update: {
+          anonymous_user_id?: string
+          created_at?: string
+          dve_score?: number | null
+          fuel_type?: string
+          id?: string
+          is_rejected?: boolean | null
+          is_verified?: boolean | null
+          location_factor?: number | null
+          rejection_reason?: string | null
+          station_id?: string
+          time_decay_factor?: number | null
+          timestamp?: string
+          trust_score_at_submission?: number | null
+          user_lat?: number
+          user_lon?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crowdsourced_reports_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fuel_stations: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          lat: number | null
+          legacy_id: number | null
+          lon: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          legacy_id?: number | null
+          lon?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          legacy_id?: number | null
+          lon?: number | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_trust_scores: {
+        Row: {
+          anonymous_user_id: string
+          correct_reports: number
+          created_at: string
+          id: string
+          incorrect_reports: number
+          total_reports: number
+          trust_score: number
+          updated_at: string
+        }
+        Insert: {
+          anonymous_user_id: string
+          correct_reports?: number
+          created_at?: string
+          id?: string
+          incorrect_reports?: number
+          total_reports?: number
+          trust_score?: number
+          updated_at?: string
+        }
+        Update: {
+          anonymous_user_id?: string
+          correct_reports?: number
+          created_at?: string
+          id?: string
+          incorrect_reports?: number
+          total_reports?: number
+          trust_score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      verified_fuel_data: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          fuel_type: string
+          id: string
+          is_available: boolean
+          last_verified_at: string
+          station_id: string
+          updated_at: string
+          verified_by_count: number
+        }
+        Insert: {
+          confidence_score: number
+          created_at?: string
+          fuel_type: string
+          id?: string
+          is_available?: boolean
+          last_verified_at?: string
+          station_id: string
+          updated_at?: string
+          verified_by_count?: number
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          fuel_type?: string
+          id?: string
+          is_available?: boolean
+          last_verified_at?: string
+          station_id?: string
+          updated_at?: string
+          verified_by_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verified_fuel_data_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
