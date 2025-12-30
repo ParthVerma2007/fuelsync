@@ -69,11 +69,11 @@ const Map = ({ pumps, onPumpClick, selectedPump }: MapProps) => {
         html: `<div style="
           width: 32px;
           height: 32px;
-          background: ${isSelected ? 'hsl(45, 98%, 55%)' : 'hsl(180, 85%, 45%)'};
-          border: 3px solid ${isSelected ? 'hsl(220, 15%, 8%)' : 'hsl(220, 15%, 12%)'};
+          background: ${isSelected ? 'hsl(210, 15%, 60%)' : 'hsl(200, 20%, 50%)'};
+          border: 3px solid ${isSelected ? 'hsl(220, 20%, 10%)' : 'hsl(220, 18%, 14%)'};
           border-radius: 50% 50% 50% 0;
           transform: rotate(-45deg);
-          box-shadow: 0 0 20px ${isSelected ? 'hsl(45, 98%, 55%, 0.6)' : 'hsl(180, 85%, 45%, 0.4)'};
+          box-shadow: 0 0 20px ${isSelected ? 'hsl(210, 15%, 60%, 0.6)' : 'hsl(200, 20%, 50%, 0.4)'};
           display: flex;
           align-items: center;
           justify-content: center;
@@ -82,7 +82,7 @@ const Map = ({ pumps, onPumpClick, selectedPump }: MapProps) => {
           <div style="
             width: 12px;
             height: 12px;
-            background: hsl(220, 15%, 8%);
+            background: hsl(220, 20%, 10%);
             border-radius: 50%;
             transform: rotate(45deg);
           "></div>

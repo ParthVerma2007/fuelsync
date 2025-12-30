@@ -8,6 +8,7 @@ import FuelFilter, { FuelType } from "@/components/FuelFilter";
 import PumpDetails from "@/components/PumpDetails";
 import CompatibilityChecker from "@/components/CompatibilityChecker";
 import ReportFuelModal from "@/components/ReportFuelModal";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Fuel, Loader2, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -90,11 +91,12 @@ const Index = () => {
               <Fuel className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-fuel-glow">FuelNavigator</h1>
+              <h1 className="text-2xl font-bold text-fuel-glow">FuelSync</h1>
               <p className="text-xs text-muted-foreground font-mono">Smart City Fuel Mapping</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <ReportFuelModal />
             <Link to="/admin">
               <Button variant="outline" size="sm" className="gap-2">

@@ -137,7 +137,7 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-2">
               <Shield className="w-6 h-6 text-primary" />
               <div>
-                <h1 className="text-xl font-bold">DVE Admin Dashboard</h1>
+                <h1 className="text-xl font-bold">FuelSync DVE Admin</h1>
                 <p className="text-xs text-muted-foreground">Data Verification Engine Monitor</p>
               </div>
             </div>
