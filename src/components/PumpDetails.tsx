@@ -1,24 +1,31 @@
 import { PumpData } from "@/data/pumpsData";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { X, Fuel, Droplets, Battery, Wind, Star, MapPin } from "lucide-react";
+import { X, Fuel, Droplets, Battery, Wind, Star, MapPin, ShieldCheck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { VerifiedFuelInfo } from "@/services/stationService";
 
 interface PumpDetailsProps {
   pump: PumpData | null;
   onClose: () => void;
+  verifiedData?: VerifiedFuelInfo | null;
 }
 
-const PumpDetails = ({ pump, onClose }: PumpDetailsProps) => {
+const PumpDetails = ({ pump, onClose, verifiedData }: PumpDetailsProps) => {
   if (!pump) return null;
 
+  // Check if a fuel type is verified by crowdsourcing
+  const getVerifiedInfo = (fuelType: string) => {
+    return verifiedData?.fuelTypes.find(f => f.type.toLowerCase() === fuelType.toLowerCase());
+  };
+
   const fuelTypes = [
-    { available: pump.e10, label: "E10", color: "bg-[hsl(var(--e10-color))]", icon: <Droplets className="w-3 h-3" /> },
-    { available: pump.e20, label: "E20", color: "bg-[hsl(var(--e20-color))]", icon: <Droplets className="w-3 h-3" /> },
-    { available: pump.pure, label: "Pure", color: "bg-[hsl(var(--pure-color))]", icon: <Fuel className="w-3 h-3" /> },
-    { available: pump.diesel, label: "Diesel", color: "bg-[hsl(var(--diesel-color))]", icon: <Fuel className="w-3 h-3" /> },
-    { available: pump.cng, label: "CNG", color: "bg-[hsl(var(--cng-color))]", icon: <Wind className="w-3 h-3" /> },
-    { available: pump.evCharging, label: "EV", color: "bg-[hsl(var(--ev-color))]", icon: <Battery className="w-3 h-3" /> },
+    { available: pump.e10, label: "E10", key: "e10", color: "bg-[hsl(var(--e10-color))]", icon: <Droplets className="w-3 h-3" /> },
+    { available: pump.e20, label: "E20", key: "e20", color: "bg-[hsl(var(--e20-color))]", icon: <Droplets className="w-3 h-3" /> },
+    { available: pump.pure, label: "Pure", key: "pure", color: "bg-[hsl(var(--pure-color))]", icon: <Fuel className="w-3 h-3" /> },
+    { available: pump.diesel, label: "Diesel", key: "diesel", color: "bg-[hsl(var(--diesel-color))]", icon: <Fuel className="w-3 h-3" /> },
+    { available: pump.cng, label: "CNG", key: "cng", color: "bg-[hsl(var(--cng-color))]", icon: <Wind className="w-3 h-3" /> },
+    { available: pump.evCharging, label: "EV", key: "ev", color: "bg-[hsl(var(--ev-color))]", icon: <Battery className="w-3 h-3" /> },
   ];
 
   return (
@@ -47,14 +54,47 @@ const PumpDetails = ({ pump, onClose }: PumpDetailsProps) => {
           <div className="flex flex-wrap gap-2">
             {fuelTypes
               .filter(fuel => fuel.available)
-              .map((fuel) => (
-                <Badge key={fuel.label} className={`${fuel.color} text-background font-mono flex items-center gap-1.5 px-2.5 py-1`}>
-                  {fuel.icon}
-                  {fuel.label}
-                </Badge>
-              ))}
+              .map((fuel) => {
+                const verified = getVerifiedInfo(fuel.key);
+                return (
+                  <div key={fuel.label} className="flex flex-col items-center gap-1">
+                    <Badge className={`${fuel.color} text-background font-mono flex items-center gap-1.5 px-2.5 py-1`}>
+                      {fuel.icon}
+                      {fuel.label}
+                    </Badge>
+                    {verified && (
+                      <div className="flex items-center gap-1 text-[10px] text-primary font-mono">
+                        <ShieldCheck className="w-3 h-3" />
+                        <Users className="w-3 h-3" />
+                        <span>{verified.verifiedByCount}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
+
+        {/* Verified by DVE section */}
+        {verifiedData && verifiedData.fuelTypes.length > 0 && (
+          <div className="pt-2 border-t border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck className="w-4 h-4 text-primary" />
+              <p className="text-xs font-mono text-primary uppercase tracking-wider">DVE Verified</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {verifiedData.fuelTypes.map((fuel) => (
+                <Badge 
+                  key={fuel.type} 
+                  variant="outline" 
+                  className="font-mono text-xs border-primary/50 text-primary"
+                >
+                  {fuel.type} • {Math.round(fuel.confidence * 100)}% • {fuel.verifiedByCount} users
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
           <div className="flex items-center gap-2">

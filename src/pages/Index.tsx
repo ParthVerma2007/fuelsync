@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { pumpsData, PumpData } from "@/data/pumpsData";
 import { geocodeAllPumps } from "@/services/geocodingService";
-import { seedFuelStations } from "@/services/stationService";
+import { seedFuelStations, getVerifiedFuelData, VerifiedFuelInfo } from "@/services/stationService";
 import Map from "@/components/Map";
 import FuelFilter, { FuelType } from "@/components/FuelFilter";
 import PumpDetails from "@/components/PumpDetails";
@@ -18,7 +18,14 @@ const Index = () => {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("all");
   const [selectedPump, setSelectedPump] = useState<PumpData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [verifiedFuelData, setVerifiedFuelData] = useState<VerifiedFuelInfo[]>([]);
   const { toast } = useToast();
+
+  // Get verified data for selected pump
+  const getVerifiedDataForPump = (pump: PumpData | null): VerifiedFuelInfo | null => {
+    if (!pump) return null;
+    return verifiedFuelData.find(v => v.legacyId === pump.id) || null;
+  };
 
   useEffect(() => {
     const loadPumps = async () => {
@@ -30,6 +37,10 @@ const Index = () => {
         
         // Seed fuel stations to database
         await seedFuelStations();
+        
+        // Load verified fuel data
+        const verified = await getVerifiedFuelData();
+        setVerifiedFuelData(verified);
         
         const geocodedCount = geocoded.filter(p => p.lat && p.lon).length;
         toast({
@@ -124,7 +135,11 @@ const Index = () => {
         </div>
 
         {/* Pump Details */}
-        <PumpDetails pump={selectedPump} onClose={() => setSelectedPump(null)} />
+        <PumpDetails 
+          pump={selectedPump} 
+          onClose={() => setSelectedPump(null)} 
+          verifiedData={getVerifiedDataForPump(selectedPump)}
+        />
       </div>
 
       {/* Mobile Compatibility Checker */}
