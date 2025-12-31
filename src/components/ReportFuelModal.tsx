@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { MapPin, Clock, User, Fuel, Loader2, Send, AlertCircle, RefreshCw, Edit3 } from "lucide-react";
+import { geocodeAddress } from "@/services/geocodingService";
 
 interface FuelStation {
   id: string;
@@ -31,20 +33,17 @@ export default function ReportFuelModal() {
   const [loadingStations, setLoadingStations] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [isManualLocation, setIsManualLocation] = useState(false);
-  const [manualLat, setManualLat] = useState("");
-  const [manualLon, setManualLon] = useState("");
+  const [manualAreaName, setManualAreaName] = useState("");
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [geocodingArea, setGeocodingArea] = useState(false);
   
-  // Registration states
   const [isRegistered, setIsRegistered] = useState(false);
-  const [showRegistration, setShowRegistration] = useState(false);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [registering, setRegistering] = useState(false);
   
   const { toast } = useToast();
 
-  // Check if user is registered
   useEffect(() => {
     const storedUserId = localStorage.getItem("fuelsync_user_id");
     const storedUserName = localStorage.getItem("fuelsync_user_name");
@@ -58,7 +57,6 @@ export default function ReportFuelModal() {
     }
   }, []);
 
-  // Load fuel stations
   useEffect(() => {
     const loadStations = async () => {
       setLoadingStations(true);
@@ -112,23 +110,47 @@ export default function ReportFuelModal() {
     );
   };
 
-  const handleManualLocationSubmit = () => {
-    const lat = parseFloat(manualLat);
-    const lon = parseFloat(manualLon);
-    
-    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+  const handleManualLocationSubmit = async () => {
+    if (!manualAreaName.trim()) {
       toast({
-        title: "Invalid Coordinates",
-        description: "Please enter valid latitude (-90 to 90) and longitude (-180 to 180)",
+        title: "Missing Area Name",
+        description: "Please enter your area/location name",
         variant: "destructive",
       });
       return;
     }
     
-    setUserLocation({ lat, lon });
-    setIsManualLocation(true);
-    setShowManualEntry(false);
-    setLocationError("");
+    setGeocodingArea(true);
+    
+    try {
+      const location = await geocodeAddress(manualAreaName.trim());
+      
+      if (location) {
+        setUserLocation({ lat: location.lat, lon: location.lon });
+        setIsManualLocation(true);
+        setShowManualEntry(false);
+        setLocationError("");
+        toast({
+          title: "Location Found",
+          description: `Coordinates set from: ${manualAreaName}`,
+        });
+      } else {
+        toast({
+          title: "Location Not Found",
+          description: "Could not find coordinates for the entered area. Please try a more specific location.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      toast({
+        title: "Geocoding Failed",
+        description: "Failed to convert area name to coordinates",
+        variant: "destructive",
+      });
+    } finally {
+      setGeocodingArea(false);
+    }
   };
 
   const handleRegistration = async () => {
@@ -141,7 +163,6 @@ export default function ReportFuelModal() {
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(userEmail)) {
       toast({
@@ -154,17 +175,14 @@ export default function ReportFuelModal() {
 
     setRegistering(true);
     
-    // Generate user ID
     const userId = `user_${Math.random().toString(36).substring(2, 10)}`;
     
-    // Store in localStorage
     localStorage.setItem("fuelsync_user_id", userId);
     localStorage.setItem("fuelsync_user_name", userName.trim());
     localStorage.setItem("fuelsync_user_email", userEmail.trim());
     
     setAnonymousUserId(userId);
     setIsRegistered(true);
-    setShowRegistration(false);
     setRegistering(false);
     
     toast({
@@ -206,6 +224,10 @@ export default function ReportFuelModal() {
 
       const result = response.data;
 
+      if (!result || !result.success) {
+        throw new Error(result?.error || "Unknown error occurred");
+      }
+
       if (result.dveResult?.isRejected) {
         toast({
           title: "Report Submitted",
@@ -214,9 +236,10 @@ export default function ReportFuelModal() {
         });
       } else {
         const scoreNote = isManualLocation ? " (Manual location penalty applied)" : "";
+        const score = result.dveResult?.score ?? 0;
         toast({
           title: "Report Submitted Successfully",
-          description: `DVE Score: ${(result.dveResult?.score * 100).toFixed(1)}%${scoreNote} - Your contribution helps verify fuel availability!`,
+          description: `DVE Score: ${(score * 100).toFixed(1)}%${scoreNote} - Your contribution helps verify fuel availability!`,
         });
       }
 
@@ -225,8 +248,7 @@ export default function ReportFuelModal() {
       setFuelType("");
       setIsManualLocation(false);
       setShowManualEntry(false);
-      setManualLat("");
-      setManualLon("");
+      setManualAreaName("");
     } catch (error) {
       console.error("Submit error:", error);
       toast({
@@ -241,7 +263,6 @@ export default function ReportFuelModal() {
 
   const selectedStationData = stations.find((s) => s.id === selectedStation);
 
-  // If not registered, show registration form when trying to report
   if (open && !isRegistered) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
@@ -257,6 +278,9 @@ export default function ReportFuelModal() {
               <User className="w-5 h-5 text-primary" />
               Register to Report
             </DialogTitle>
+            <DialogDescription>
+              Register to start submitting fuel availability reports.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -326,10 +350,12 @@ export default function ReportFuelModal() {
             <Fuel className="w-5 h-5 text-primary" />
             Report Fuel Availability
           </DialogTitle>
+          <DialogDescription>
+            Submit a report to help others find fuel.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Station Selection */}
           <div className="space-y-2">
             <Label htmlFor="station">Fuel Station</Label>
             {loadingStations ? (
@@ -358,7 +384,6 @@ export default function ReportFuelModal() {
             )}
           </div>
 
-          {/* Fuel Type Selection */}
           <div className="space-y-2">
             <Label htmlFor="fuelType">Fuel Type Available</Label>
             <Select value={fuelType} onValueChange={setFuelType}>
@@ -375,13 +400,11 @@ export default function ReportFuelModal() {
             </Select>
           </div>
 
-          {/* Auto-captured fields */}
           <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Auto-captured Data
             </p>
 
-            {/* User Info */}
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">User:</span>
@@ -390,7 +413,6 @@ export default function ReportFuelModal() {
               </Badge>
             </div>
 
-            {/* Timestamp */}
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">Timestamp:</span>
@@ -399,13 +421,12 @@ export default function ReportFuelModal() {
               </Badge>
             </div>
 
-            {/* Location */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">Location:</span>
                 {userLocation ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge 
                       variant={isManualLocation ? "destructive" : "secondary"} 
                       className="font-mono text-xs"
@@ -426,12 +447,11 @@ export default function ReportFuelModal() {
                 ) : locationError ? (
                   <div className="flex items-center gap-1 text-destructive text-xs">
                     <AlertCircle className="w-3 h-3" />
-                    {locationError}
+                    <span className="max-w-[200px] truncate">{locationError}</span>
                   </div>
                 ) : null}
               </div>
 
-              {/* Location action buttons */}
               <div className="flex gap-2 ml-6">
                 <Button
                   type="button"
@@ -441,7 +461,7 @@ export default function ReportFuelModal() {
                   disabled={loadingLocation}
                   className="text-xs h-7"
                 >
-                  <RefreshCw className={`w-3 h-3 mr-1 ${loadingLocation ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3 h-3 mr-1 ${loadingLocation ? "animate-spin" : ""}`} />
                   Retry Location
                 </Button>
                 <Button
@@ -456,51 +476,42 @@ export default function ReportFuelModal() {
                 </Button>
               </div>
 
-              {/* Manual location entry form */}
               {showManualEntry && (
                 <div className="ml-6 p-3 bg-destructive/10 border border-destructive/20 rounded-lg space-y-3">
                   <p className="text-xs text-destructive font-medium">
-                    ⚠️ Manual location will reduce your DVE score to 0.1x
+                    Warning: Manual location will reduce your DVE score to 0.1x
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">Latitude</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="e.g. 28.6139"
-                        value={manualLat}
-                        onChange={(e) => setManualLat(e.target.value)}
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Longitude</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="e.g. 77.2090"
-                        value={manualLon}
-                        onChange={(e) => setManualLon(e.target.value)}
-                        className="h-8 text-xs"
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Enter your area/location name</Label>
+                    <Textarea
+                      placeholder="e.g., Connaught Place, New Delhi or MG Road, Bangalore"
+                      value={manualAreaName}
+                      onChange={(e) => setManualAreaName(e.target.value)}
+                      className="text-xs min-h-[60px]"
+                    />
                   </div>
                   <Button
                     type="button"
                     size="sm"
                     variant="destructive"
                     onClick={handleManualLocationSubmit}
+                    disabled={geocodingArea}
                     className="w-full h-7 text-xs"
                   >
-                    Use Manual Location (0.1x Score)
+                    {geocodingArea ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        Finding location...
+                      </>
+                    ) : (
+                      "Use Manual Location (0.1x Score)"
+                    )}
                   </Button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* DVE Note */}
           <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
             <p className="text-xs text-muted-foreground">
               <strong className="text-primary">Data Verification Engine (DVE):</strong> Your report will be
