@@ -21,6 +21,7 @@ const DVE_CONFIG = {
   CONSENSUS_THRESHOLD: 0.6,
   CONSENSUS_BONUS: 0.2,
   VERIFICATION_THRESHOLD: 0.4,
+  MANUAL_LOCATION_PENALTY: 0.1, // Penalty factor for manual location entry
 };
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -39,12 +40,18 @@ function calculateTimeDecay(reportTimestamp: Date): number {
   return Math.pow(0.5, ageHours / DVE_CONFIG.TIME_DECAY_HALF_LIFE);
 }
 
-function calculateLocationFactor(userLat: number, userLon: number, stationLat: number, stationLon: number) {
+function calculateLocationFactor(userLat: number, userLon: number, stationLat: number, stationLon: number, isManualLocation: boolean = false) {
+  // If manual location, apply penalty and skip distance validation
+  if (isManualLocation) {
+    const distance = calculateDistance(userLat, userLon, stationLat, stationLon);
+    return { factor: DVE_CONFIG.MANUAL_LOCATION_PENALTY, distance, isValid: true, isManual: true };
+  }
+  
   const distance = calculateDistance(userLat, userLon, stationLat, stationLon);
-  if (distance > DVE_CONFIG.MAX_DISTANCE_KM) return { factor: 0, distance, isValid: false };
-  if (distance <= DVE_CONFIG.OPTIMAL_DISTANCE_KM) return { factor: 1.0, distance, isValid: true };
+  if (distance > DVE_CONFIG.MAX_DISTANCE_KM) return { factor: 0, distance, isValid: false, isManual: false };
+  if (distance <= DVE_CONFIG.OPTIMAL_DISTANCE_KM) return { factor: 1.0, distance, isValid: true, isManual: false };
   const factor = 1 - (distance - DVE_CONFIG.OPTIMAL_DISTANCE_KM) / (DVE_CONFIG.MAX_DISTANCE_KM - DVE_CONFIG.OPTIMAL_DISTANCE_KM);
-  return { factor: Math.max(0, factor), distance, isValid: true };
+  return { factor: Math.max(0, factor), distance, isValid: true, isManual: false };
 }
 
 serve(async (req) => {
@@ -61,6 +68,8 @@ serve(async (req) => {
     const { action, report } = await req.json();
 
     if (action === "submit_report") {
+      console.log("Processing report submission:", report);
+      
       if (!report.station_id || !report.fuel_type || !report.anonymous_user_id || 
           report.user_lat === undefined || report.user_lon === undefined) {
         return new Response(JSON.stringify({ error: "Missing required fields" }),
@@ -89,7 +98,10 @@ serve(async (req) => {
 
       const trustScore = userTrust?.trust_score ?? DVE_CONFIG.INITIAL_TRUST_SCORE;
       const timeDecay = calculateTimeDecay(new Date());
-      const locationResult = calculateLocationFactor(report.user_lat, report.user_lon, station.lat, station.lon);
+      const isManualLocation = report.is_manual_location === true;
+      const locationResult = calculateLocationFactor(report.user_lat, report.user_lon, station.lat, station.lon, isManualLocation);
+
+      console.log("DVE Calculation:", { trustScore, timeDecay, locationResult, isManualLocation });
 
       let dveScore = 0, isRejected = false, rejectionReason: string | null = null;
 
@@ -98,6 +110,11 @@ serve(async (req) => {
         rejectionReason = `User too far from station (${locationResult.distance.toFixed(2)}km)`;
       } else {
         dveScore = trustScore * timeDecay * locationResult.factor;
+        
+        // Log if manual location was used
+        if (isManualLocation) {
+          console.log(`Manual location used - applying ${DVE_CONFIG.MANUAL_LOCATION_PENALTY}x penalty. Final score: ${dveScore}`);
+        }
       }
 
       const { data: insertedReport } = await supabaseClient.from("crowdsourced_reports").insert({
@@ -152,7 +169,15 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({
         success: true, reportId: insertedReport?.id,
-        dveResult: { score: dveScore, trustScore, timeDecay, locationFactor: locationResult.factor, isRejected, rejectionReason }
+        dveResult: { 
+          score: dveScore, 
+          trustScore, 
+          timeDecay, 
+          locationFactor: locationResult.factor, 
+          isRejected, 
+          rejectionReason,
+          isManualLocation: locationResult.isManual
+        }
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
