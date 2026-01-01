@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const GEOAPIFY_API_KEY = "7467d8bd3f3549bbad82ef9853724c7b";
+
 // DVE Configuration Constants (matching IEEE paper)
 const DVE_CONFIG = {
   INITIAL_TRUST_SCORE: 0.5,
@@ -21,8 +23,33 @@ const DVE_CONFIG = {
   CONSENSUS_THRESHOLD: 0.6,
   CONSENSUS_BONUS: 0.2,
   VERIFICATION_THRESHOLD: 0.4,
-  MANUAL_LOCATION_PENALTY: 0.1, // Penalty factor for manual location entry
+  MANUAL_LOCATION_PENALTY: 0.1,
 };
+
+async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
+  try {
+    const response = await fetch(
+      `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&apiKey=${GEOAPIFY_API_KEY}`
+    );
+    
+    if (!response.ok) {
+      console.error("Geocoding API error:", response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data.features && data.features.length > 0) {
+      const [lon, lat] = data.features[0].geometry.coordinates;
+      return { lat, lon };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Geocoding error:", error);
+    return null;
+  }
+}
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -41,7 +68,6 @@ function calculateTimeDecay(reportTimestamp: Date): number {
 }
 
 function calculateLocationFactor(userLat: number, userLon: number, stationLat: number, stationLon: number, isManualLocation: boolean = false) {
-  // If manual location, apply penalty and skip distance validation
   if (isManualLocation) {
     const distance = calculateDistance(userLat, userLon, stationLat, stationLon);
     return { factor: DVE_CONFIG.MANUAL_LOCATION_PENALTY, distance, isValid: true, isManual: true };
@@ -76,12 +102,45 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const { data: station } = await supabaseClient.from("fuel_stations")
-        .select("id, lat, lon").eq("id", report.station_id).single();
+      // Get station data
+      const { data: station, error: stationError } = await supabaseClient.from("fuel_stations")
+        .select("id, lat, lon, address, name").eq("id", report.station_id).single();
 
-      if (!station?.lat || !station?.lon) {
-        return new Response(JSON.stringify({ error: "Station not found or missing coordinates" }),
+      if (stationError || !station) {
+        console.error("Station not found:", stationError);
+        return new Response(JSON.stringify({ error: "Station not found" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      let stationLat = station.lat;
+      let stationLon = station.lon;
+
+      // If station doesn't have coordinates, geocode the address
+      if (!stationLat || !stationLon) {
+        console.log("Station missing coordinates, geocoding address:", station.address);
+        const geocoded = await geocodeAddress(station.address);
+        
+        if (geocoded) {
+          stationLat = geocoded.lat;
+          stationLon = geocoded.lon;
+          
+          // Update station with geocoded coordinates
+          const { error: updateError } = await supabaseClient.from("fuel_stations")
+            .update({ lat: stationLat, lon: stationLon })
+            .eq("id", station.id);
+          
+          if (updateError) {
+            console.error("Failed to update station coordinates:", updateError);
+          } else {
+            console.log("Updated station coordinates:", { stationLat, stationLon });
+          }
+        } else {
+          console.error("Geocoding failed for address:", station.address);
+          // Use user's location as fallback (with penalty already applied for manual location)
+          stationLat = report.user_lat;
+          stationLon = report.user_lon;
+          console.log("Using user location as fallback for station coordinates");
+        }
       }
 
       // Get or create user trust score
@@ -99,7 +158,7 @@ serve(async (req) => {
       const trustScore = userTrust?.trust_score ?? DVE_CONFIG.INITIAL_TRUST_SCORE;
       const timeDecay = calculateTimeDecay(new Date());
       const isManualLocation = report.is_manual_location === true;
-      const locationResult = calculateLocationFactor(report.user_lat, report.user_lon, station.lat, station.lon, isManualLocation);
+      const locationResult = calculateLocationFactor(report.user_lat, report.user_lon, stationLat, stationLon, isManualLocation);
 
       console.log("DVE Calculation:", { trustScore, timeDecay, locationResult, isManualLocation });
 
@@ -111,13 +170,12 @@ serve(async (req) => {
       } else {
         dveScore = trustScore * timeDecay * locationResult.factor;
         
-        // Log if manual location was used
         if (isManualLocation) {
           console.log(`Manual location used - applying ${DVE_CONFIG.MANUAL_LOCATION_PENALTY}x penalty. Final score: ${dveScore}`);
         }
       }
 
-      const { data: insertedReport } = await supabaseClient.from("crowdsourced_reports").insert({
+      const { data: insertedReport, error: insertError } = await supabaseClient.from("crowdsourced_reports").insert({
         station_id: report.station_id,
         anonymous_user_id: report.anonymous_user_id,
         fuel_type: report.fuel_type,
@@ -130,6 +188,12 @@ serve(async (req) => {
         is_rejected: isRejected,
         rejection_reason: rejectionReason,
       }).select().single();
+
+      if (insertError) {
+        console.error("Failed to insert report:", insertError);
+        return new Response(JSON.stringify({ error: "Failed to save report" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       // Run consensus check
       const cutoffDate = new Date();
