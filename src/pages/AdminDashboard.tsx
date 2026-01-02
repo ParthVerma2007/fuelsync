@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -104,9 +105,64 @@ export default function AdminDashboard() {
     }
   };
 
+  const { toast } = useToast();
+
   useEffect(() => {
     fetchData();
-  }, []);
+
+    // Set up real-time subscriptions
+    const reportsChannel = supabase
+      .channel('admin-reports-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'crowdsourced_reports'
+        },
+        (payload) => {
+          console.log('Report change detected:', payload);
+          fetchData();
+          toast({
+            title: "Data Updated",
+            description: `Report ${payload.eventType === 'INSERT' ? 'added' : 'updated'}`,
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'verified_fuel_data'
+        },
+        (payload) => {
+          console.log('Verified data change detected:', payload);
+          fetchData();
+          toast({
+            title: "Verified Data Updated",
+            description: "Fuel verification status changed",
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_trust_scores'
+        },
+        (payload) => {
+          console.log('Trust score change detected:', payload);
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(reportsChannel);
+    };
+  }, [toast]);
 
   const reprocessPending = async () => {
     setReprocessing(true);
