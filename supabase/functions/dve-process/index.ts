@@ -19,10 +19,11 @@ const DVE_CONFIG = {
   MAX_REPORT_AGE_HOURS: 168,
   MAX_DISTANCE_KM: 2.0,
   OPTIMAL_DISTANCE_KM: 0.5,
-  MIN_REPORTS_FOR_CONSENSUS: 2,
+  MIN_REPORTS_FOR_CONSENSUS: 1,  // Lowered for demo - single high-score report can verify
   CONSENSUS_THRESHOLD: 0.6,
   CONSENSUS_BONUS: 0.2,
   VERIFICATION_THRESHOLD: 0.4,
+  HIGH_SCORE_AUTO_VERIFY: 0.5,   // Auto-verify individual reports with score >= 50%
   MANUAL_LOCATION_PENALTY: 0.1,
 };
 
@@ -197,24 +198,38 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Run consensus check
-      const cutoffDate = new Date();
-      cutoffDate.setHours(cutoffDate.getHours() - DVE_CONFIG.MAX_REPORT_AGE_HOURS);
-      
-      const { data: reports } = await supabaseClient.from("crowdsourced_reports")
-        .select("*").eq("station_id", report.station_id).eq("is_rejected", false)
-        .gte("timestamp", cutoffDate.toISOString());
+      // Auto-verify high-scoring individual reports
+      if (!isRejected && dveScore >= DVE_CONFIG.HIGH_SCORE_AUTO_VERIFY) {
+        console.log(`High score auto-verify: ${dveScore} >= ${DVE_CONFIG.HIGH_SCORE_AUTO_VERIFY}`);
+        
+        await supabaseClient.from("crowdsourced_reports").update({ is_verified: true }).eq("id", insertedReport.id);
+        
+        await supabaseClient.from("verified_fuel_data").upsert({
+          station_id: report.station_id, 
+          fuel_type: report.fuel_type, 
+          is_available: true,
+          confidence_score: dveScore, 
+          verified_by_count: 1,
+          last_verified_at: new Date().toISOString(),
+        }, { onConflict: "station_id,fuel_type" });
+      } else {
+        // Run consensus check for lower-scoring reports
+        const cutoffDate = new Date();
+        cutoffDate.setHours(cutoffDate.getHours() - DVE_CONFIG.MAX_REPORT_AGE_HOURS);
+        
+        const { data: reports } = await supabaseClient.from("crowdsourced_reports")
+          .select("*").eq("station_id", report.station_id).eq("is_rejected", false)
+          .gte("timestamp", cutoffDate.toISOString());
 
-      if (reports && reports.length >= DVE_CONFIG.MIN_REPORTS_FOR_CONSENSUS) {
-        const fuelTypeReports: Record<string, any[]> = {};
-        for (const r of reports) {
-          if (!fuelTypeReports[r.fuel_type]) fuelTypeReports[r.fuel_type] = [];
-          fuelTypeReports[r.fuel_type].push(r);
-        }
+        if (reports && reports.length >= DVE_CONFIG.MIN_REPORTS_FOR_CONSENSUS) {
+          const fuelTypeReports: Record<string, any[]> = {};
+          for (const r of reports) {
+            if (!fuelTypeReports[r.fuel_type]) fuelTypeReports[r.fuel_type] = [];
+            fuelTypeReports[r.fuel_type].push(r);
+          }
 
-        for (const [fuelType, fuelReports] of Object.entries(fuelTypeReports)) {
-          const uniqueUsers = new Set(fuelReports.map((r: any) => r.anonymous_user_id)).size;
-          if (uniqueUsers >= DVE_CONFIG.MIN_REPORTS_FOR_CONSENSUS) {
+          for (const [fuelType, fuelReports] of Object.entries(fuelTypeReports)) {
+            const uniqueUsers = new Set(fuelReports.map((r: any) => r.anonymous_user_id)).size;
             const avgScore = fuelReports.reduce((sum: number, r: any) => sum + (r.dve_score || 0), 0) / fuelReports.length;
             const finalScore = Math.min(1.0, avgScore + DVE_CONFIG.CONSENSUS_BONUS);
 
@@ -254,6 +269,86 @@ serve(async (req) => {
       const { data: verifiedData } = await supabaseClient.from("verified_fuel_data").select("*, fuel_stations (name)");
 
       return new Response(JSON.stringify({ reports, trustScores, verifiedData, config: DVE_CONFIG }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Reprocess all pending reports to verify eligible ones
+    if (action === "reprocess_pending") {
+      console.log("Reprocessing pending reports...");
+      
+      const { data: pendingReports, error: fetchError } = await supabaseClient.from("crowdsourced_reports")
+        .select("*, fuel_stations (name)")
+        .eq("is_verified", false)
+        .eq("is_rejected", false);
+
+      if (fetchError) {
+        console.error("Failed to fetch pending reports:", fetchError);
+        return new Response(JSON.stringify({ error: "Failed to fetch pending reports" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      let verifiedCount = 0;
+
+      for (const report of (pendingReports || [])) {
+        // Auto-verify high-scoring reports
+        if (report.dve_score >= DVE_CONFIG.HIGH_SCORE_AUTO_VERIFY) {
+          await supabaseClient.from("crowdsourced_reports")
+            .update({ is_verified: true })
+            .eq("id", report.id);
+
+          await supabaseClient.from("verified_fuel_data").upsert({
+            station_id: report.station_id, 
+            fuel_type: report.fuel_type, 
+            is_available: true,
+            confidence_score: report.dve_score, 
+            verified_by_count: 1,
+            last_verified_at: new Date().toISOString(),
+          }, { onConflict: "station_id,fuel_type" });
+
+          verifiedCount++;
+          console.log(`Verified report ${report.id} with score ${report.dve_score}`);
+        }
+      }
+
+      // Also check consensus for grouped reports
+      const stationFuelGroups: Record<string, any[]> = {};
+      for (const report of (pendingReports || [])) {
+        const key = `${report.station_id}:${report.fuel_type}`;
+        if (!stationFuelGroups[key]) stationFuelGroups[key] = [];
+        stationFuelGroups[key].push(report);
+      }
+
+      for (const [key, reports] of Object.entries(stationFuelGroups)) {
+        const avgScore = reports.reduce((sum, r) => sum + (r.dve_score || 0), 0) / reports.length;
+        const finalScore = Math.min(1.0, avgScore + DVE_CONFIG.CONSENSUS_BONUS);
+
+        if (finalScore >= DVE_CONFIG.VERIFICATION_THRESHOLD) {
+          const [stationId, fuelType] = key.split(":");
+          const uniqueUsers = new Set(reports.map(r => r.anonymous_user_id)).size;
+
+          await supabaseClient.from("verified_fuel_data").upsert({
+            station_id: stationId, 
+            fuel_type: fuelType, 
+            is_available: true,
+            confidence_score: finalScore, 
+            verified_by_count: uniqueUsers,
+            last_verified_at: new Date().toISOString(),
+          }, { onConflict: "station_id,fuel_type" });
+
+          for (const r of reports) {
+            if (!r.is_verified) {
+              await supabaseClient.from("crowdsourced_reports")
+                .update({ is_verified: true })
+                .eq("id", r.id);
+              verifiedCount++;
+            }
+          }
+        }
+      }
+
+      console.log(`Reprocessing complete. Verified ${verifiedCount} reports.`);
+
+      return new Response(JSON.stringify({ success: true, verifiedCount }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
