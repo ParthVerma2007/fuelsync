@@ -56,17 +56,20 @@ const PumpDetails = ({ pump, onClose, verifiedData }: PumpDetailsProps) => {
               .filter(fuel => fuel.available)
               .map((fuel) => {
                 const verified = getVerifiedInfo(fuel.key);
+                const isVerified = !!verified;
                 return (
                   <div key={fuel.label} className="flex flex-col items-center gap-1">
-                    <Badge className={`${fuel.color} text-background font-mono flex items-center gap-1.5 px-2.5 py-1`}>
+                    <Badge 
+                      className={`${isVerified ? 'bg-green-600 hover:bg-green-700' : fuel.color} text-background font-mono flex items-center gap-1.5 px-2.5 py-1`}
+                    >
                       {fuel.icon}
                       {fuel.label}
+                      {isVerified && <ShieldCheck className="w-3 h-3 ml-0.5" />}
                     </Badge>
                     {verified && (
-                      <div className="flex items-center gap-1 text-[10px] text-primary font-mono">
-                        <ShieldCheck className="w-3 h-3" />
+                      <div className="flex items-center gap-1 text-[10px] text-green-500 font-mono">
                         <Users className="w-3 h-3" />
-                        <span>{verified.verifiedByCount}</span>
+                        <span>{verified.verifiedByCount} verified</span>
                       </div>
                     )}
                   </div>
@@ -77,17 +80,16 @@ const PumpDetails = ({ pump, onClose, verifiedData }: PumpDetailsProps) => {
 
         {/* Verified by DVE section */}
         {verifiedData && verifiedData.fuelTypes.length > 0 && (
-          <div className="pt-2 border-t border-border">
+          <div className="pt-2 border-t border-green-500/30">
             <div className="flex items-center gap-2 mb-2">
-              <ShieldCheck className="w-4 h-4 text-primary" />
-              <p className="text-xs font-mono text-primary uppercase tracking-wider">DVE Verified</p>
+              <ShieldCheck className="w-4 h-4 text-green-500" />
+              <p className="text-xs font-mono text-green-500 uppercase tracking-wider">DVE Verified</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {verifiedData.fuelTypes.map((fuel) => (
                 <Badge 
                   key={fuel.type} 
-                  variant="outline" 
-                  className="font-mono text-xs border-primary/50 text-primary"
+                  className="font-mono text-xs bg-green-600/20 border-green-500/50 text-green-400"
                 >
                   {fuel.type} • {Math.round(fuel.confidence * 100)}% • {fuel.verifiedByCount} users
                 </Badge>

@@ -128,6 +128,7 @@ const Index = () => {
             pumps={filteredPumps} 
             onPumpClick={setSelectedPump}
             selectedPump={selectedPump}
+            verifiedData={verifiedFuelData}
           />
         )}
 
