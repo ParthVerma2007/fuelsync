@@ -81,6 +81,7 @@ export default function AdminDashboard() {
   const [config, setConfig] = useState<DVEConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
 
   const fetchData = async () => {
     setRefreshing(true);
@@ -106,6 +107,25 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const reprocessPending = async () => {
+    setReprocessing(true);
+    try {
+      const response = await supabase.functions.invoke("dve-process", {
+        body: { action: "reprocess_pending" },
+      });
+
+      if (response.data?.success) {
+        console.log(`Reprocessed and verified ${response.data.verifiedCount} reports`);
+        // Refresh data after reprocessing
+        await fetchData();
+      }
+    } catch (error) {
+      console.error("Error reprocessing pending reports:", error);
+    } finally {
+      setReprocessing(false);
+    }
+  };
 
   const verifiedReports = reports.filter((r) => r.is_verified);
   const rejectedReports = reports.filter((r) => r.is_rejected);
@@ -142,10 +162,22 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-          <Button onClick={fetchData} disabled={refreshing} variant="outline" size="sm">
-            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={reprocessPending} 
+              disabled={reprocessing || pendingReports.length === 0} 
+              variant="default" 
+              size="sm"
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className={`w-4 h-4 mr-2 ${reprocessing ? "animate-pulse" : ""}`} />
+              {reprocessing ? "Processing..." : `Verify Pending (${pendingReports.length})`}
+            </Button>
+            <Button onClick={fetchData} disabled={refreshing} variant="outline" size="sm">
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </header>
 
