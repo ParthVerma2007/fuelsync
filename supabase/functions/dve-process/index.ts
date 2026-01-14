@@ -176,6 +176,12 @@ serve(async (req) => {
         if (isManualLocation) {
           console.log(`Manual location used - applying ${DVE_CONFIG.MANUAL_LOCATION_PENALTY}x penalty. Final score: ${dveScore}`);
         }
+        
+        // Reject reports that fall below the verification threshold
+        if (dveScore < DVE_CONFIG.VERIFICATION_THRESHOLD) {
+          isRejected = true;
+          rejectionReason = `DVE score too low (${(dveScore * 100).toFixed(1)}% < ${(DVE_CONFIG.VERIFICATION_THRESHOLD * 100).toFixed(0)}% threshold). Try reporting from closer to the station.`;
+        }
       }
 
       const { data: insertedReport, error: insertError } = await supabaseClient.from("crowdsourced_reports").insert({
