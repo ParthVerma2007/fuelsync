@@ -15,6 +15,7 @@ const Map = memo(({ pumps, onPumpClick, selectedPump, verifiedData = [] }: MapPr
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const [mapReady, setMapReady] = useState(false);
   
   // Memoize verified data lookup for performance
   const verifiedLookup = useMemo(() => {
@@ -28,18 +29,25 @@ const Map = memo(({ pumps, onPumpClick, selectedPump, verifiedData = [] }: MapPr
   }, [verifiedData]);
 
   useEffect(() => {
+    const initMap = () => {
+      if (mapContainer.current && (window as any).L && !mapRef.current) {
+        const L = (window as any).L;
+        const newMap = L.map(mapContainer.current).setView([18.5204, 73.8567], 12);
+        L.tileLayer(
+          `https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`,
+          {
+            attribution: '© <a href="https://www.geoapify.com/">Geoapify</a>',
+            maxZoom: 20,
+          }
+        ).addTo(newMap);
+        mapRef.current = newMap;
+        setMapReady(true);
+      }
+    };
+
     // Check if Leaflet is already loaded
-    if ((window as any).L && mapContainer.current && !mapRef.current) {
-      const L = (window as any).L;
-      const newMap = L.map(mapContainer.current).setView([18.5204, 73.8567], 12);
-      L.tileLayer(
-        `https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`,
-        {
-          attribution: '© <a href="https://www.geoapify.com/">Geoapify</a>',
-          maxZoom: 20,
-        }
-      ).addTo(newMap);
-      mapRef.current = newMap;
+    if ((window as any).L) {
+      initMap();
       return;
     }
     
@@ -56,27 +64,24 @@ const Map = memo(({ pumps, onPumpClick, selectedPump, verifiedData = [] }: MapPr
       const script = document.createElement("script");
       script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
       script.async = true;
-      script.onload = () => {
-        if (mapContainer.current && (window as any).L && !mapRef.current) {
-          const L = (window as any).L;
-          const newMap = L.map(mapContainer.current).setView([18.5204, 73.8567], 12);
-          L.tileLayer(
-            `https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`,
-            {
-              attribution: '© <a href="https://www.geoapify.com/">Geoapify</a>',
-              maxZoom: 20,
-            }
-          ).addTo(newMap);
-          mapRef.current = newMap;
-        }
-      };
+      script.onload = initMap;
       document.body.appendChild(script);
+    } else {
+      // Script exists but may still be loading, wait for it
+      const checkLeaflet = setInterval(() => {
+        if ((window as any).L) {
+          clearInterval(checkLeaflet);
+          initMap();
+        }
+      }, 100);
+      return () => clearInterval(checkLeaflet);
     }
 
     return () => {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        setMapReady(false);
       }
     };
   }, []);
@@ -139,7 +144,7 @@ const Map = memo(({ pumps, onPumpClick, selectedPump, verifiedData = [] }: MapPr
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || !(window as any).L) return;
+    if (!mapReady || !mapRef.current || !(window as any).L) return;
 
     const L = (window as any).L;
     const map = mapRef.current;
@@ -166,7 +171,7 @@ const Map = memo(({ pumps, onPumpClick, selectedPump, verifiedData = [] }: MapPr
       });
 
     markersRef.current = newMarkers;
-  }, [pumps, selectedPump, onPumpClick, verifiedLookup, createIcon]);
+  }, [mapReady, pumps, selectedPump, onPumpClick, verifiedLookup, createIcon]);
 
   return (
     <div 
