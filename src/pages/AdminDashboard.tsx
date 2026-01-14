@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,8 +83,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
+  const { toast } = useToast();
+  
+  // Debounce ref to prevent rapid refetches
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setRefreshing(true);
     try {
       const response = await supabase.functions.invoke("dve-process", {
@@ -103,14 +107,22 @@ export default function AdminDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const { toast } = useToast();
+  // Debounced fetch for real-time updates
+  const debouncedFetch = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      fetchData();
+    }, 500);
+  }, [fetchData]);
 
   useEffect(() => {
     fetchData();
 
-    // Set up real-time subscriptions
+    // Set up real-time subscriptions with debounced refresh
     const reportsChannel = supabase
       .channel('admin-reports-changes')
       .on(
@@ -122,7 +134,7 @@ export default function AdminDashboard() {
         },
         (payload) => {
           console.log('Report change detected:', payload);
-          fetchData();
+          debouncedFetch();
           toast({
             title: "Data Updated",
             description: `Report ${payload.eventType === 'INSERT' ? 'added' : 'updated'}`,
@@ -138,7 +150,7 @@ export default function AdminDashboard() {
         },
         (payload) => {
           console.log('Verified data change detected:', payload);
-          fetchData();
+          debouncedFetch();
           toast({
             title: "Verified Data Updated",
             description: "Fuel verification status changed",
@@ -154,17 +166,20 @@ export default function AdminDashboard() {
         },
         (payload) => {
           console.log('Trust score change detected:', payload);
-          fetchData();
+          debouncedFetch();
         }
       )
       .subscribe();
 
     return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
       supabase.removeChannel(reportsChannel);
     };
-  }, [toast]);
+  }, [fetchData, debouncedFetch, toast]);
 
-  const reprocessPending = async () => {
+  const reprocessPending = useCallback(async () => {
     setReprocessing(true);
     try {
       const response = await supabase.functions.invoke("dve-process", {
@@ -173,19 +188,28 @@ export default function AdminDashboard() {
 
       if (response.data?.success) {
         console.log(`Reprocessed and verified ${response.data.verifiedCount} reports`);
-        // Refresh data after reprocessing
+        toast({
+          title: "Reprocessing Complete",
+          description: `Verified ${response.data.verifiedCount} reports`,
+        });
         await fetchData();
       }
     } catch (error) {
       console.error("Error reprocessing pending reports:", error);
+      toast({
+        title: "Reprocessing Failed",
+        description: "Failed to reprocess pending reports",
+        variant: "destructive",
+      });
     } finally {
       setReprocessing(false);
     }
-  };
+  }, [fetchData, toast]);
 
-  const verifiedReports = reports.filter((r) => r.is_verified);
-  const rejectedReports = reports.filter((r) => r.is_rejected);
-  const pendingReports = reports.filter((r) => !r.is_verified && !r.is_rejected);
+  // Memoized filtered reports for performance
+  const verifiedReports = useMemo(() => reports.filter((r) => r.is_verified), [reports]);
+  const rejectedReports = useMemo(() => reports.filter((r) => r.is_rejected), [reports]);
+  const pendingReports = useMemo(() => reports.filter((r) => !r.is_verified && !r.is_rejected), [reports]);
 
   if (loading) {
     return (
