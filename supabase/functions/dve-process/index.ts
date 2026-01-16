@@ -278,7 +278,7 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Reprocess all pending reports to verify eligible ones
+    // Reprocess all pending reports to verify or reject them
     if (action === "reprocess_pending") {
       console.log("Reprocessing pending reports...");
       
@@ -294,8 +294,23 @@ serve(async (req) => {
       }
 
       let verifiedCount = 0;
+      let rejectedCount = 0;
 
       for (const report of (pendingReports || [])) {
+        // First, reject reports below the threshold
+        if (report.dve_score < DVE_CONFIG.VERIFICATION_THRESHOLD) {
+          await supabaseClient.from("crowdsourced_reports")
+            .update({ 
+              is_rejected: true,
+              rejection_reason: `DVE score too low (${(report.dve_score * 100).toFixed(1)}% < ${(DVE_CONFIG.VERIFICATION_THRESHOLD * 100).toFixed(0)}% threshold)`
+            })
+            .eq("id", report.id);
+          
+          rejectedCount++;
+          console.log(`Rejected report ${report.id} with score ${report.dve_score}`);
+          continue;
+        }
+        
         // Auto-verify high-scoring reports
         if (report.dve_score >= DVE_CONFIG.HIGH_SCORE_AUTO_VERIFY) {
           await supabaseClient.from("crowdsourced_reports")
@@ -316,9 +331,10 @@ serve(async (req) => {
         }
       }
 
-      // Also check consensus for grouped reports
+      // Also check consensus for grouped reports (exclude already rejected)
+      const remainingPending = (pendingReports || []).filter((r: any) => r.dve_score >= DVE_CONFIG.VERIFICATION_THRESHOLD);
       const stationFuelGroups: Record<string, any[]> = {};
-      for (const report of (pendingReports || [])) {
+      for (const report of remainingPending) {
         const key = `${report.station_id}:${report.fuel_type}`;
         if (!stationFuelGroups[key]) stationFuelGroups[key] = [];
         stationFuelGroups[key].push(report);
@@ -352,9 +368,9 @@ serve(async (req) => {
         }
       }
 
-      console.log(`Reprocessing complete. Verified ${verifiedCount} reports.`);
+      console.log(`Reprocessing complete. Verified ${verifiedCount}, rejected ${rejectedCount} reports.`);
 
-      return new Response(JSON.stringify({ success: true, verifiedCount }),
+      return new Response(JSON.stringify({ success: true, verifiedCount, rejectedCount }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
