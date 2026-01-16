@@ -9,7 +9,8 @@ import PumpDetails from "@/components/PumpDetails";
 import CompatibilityChecker from "@/components/CompatibilityChecker";
 import ReportFuelModal from "@/components/ReportFuelModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Fuel, Loader2, Shield } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
+import fuelIcon from "@/assets/fuel-icon.png";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
@@ -88,7 +89,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/20 rounded-lg border border-primary/30">
-              <Fuel className="w-6 h-6 text-primary" />
+              <img src={fuelIcon} alt="Fuel" className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-fuel-glow">FuelSync</h1>
