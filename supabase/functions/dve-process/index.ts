@@ -81,6 +81,51 @@ function calculateLocationFactor(userLat: number, userLon: number, stationLat: n
   return { factor: Math.max(0, factor), distance, isValid: true, isManual: false };
 }
 
+// Helper function to update user trust score based on report outcome
+async function updateUserTrustScore(
+  supabaseClient: any, 
+  anonymousUserId: string, 
+  isVerified: boolean
+): Promise<void> {
+  const { data: userTrust } = await supabaseClient.from("user_trust_scores")
+    .select("*").eq("anonymous_user_id", anonymousUserId).maybeSingle();
+
+  if (!userTrust) {
+    console.log(`No trust score found for user ${anonymousUserId}, creating one`);
+    await supabaseClient.from("user_trust_scores").insert({
+      anonymous_user_id: anonymousUserId,
+      trust_score: DVE_CONFIG.INITIAL_TRUST_SCORE,
+      total_reports: 1,
+      correct_reports: isVerified ? 1 : 0,
+      incorrect_reports: isVerified ? 0 : 1,
+    });
+    return;
+  }
+
+  const newTotalReports = (userTrust.total_reports || 0) + 1;
+  const newCorrectReports = (userTrust.correct_reports || 0) + (isVerified ? 1 : 0);
+  const newIncorrectReports = (userTrust.incorrect_reports || 0) + (isVerified ? 0 : 1);
+  
+  // Calculate new trust score
+  let newTrustScore = userTrust.trust_score;
+  if (isVerified) {
+    newTrustScore = Math.min(DVE_CONFIG.MAX_TRUST_SCORE, newTrustScore + DVE_CONFIG.TRUST_INCREMENT);
+  } else {
+    newTrustScore = Math.max(DVE_CONFIG.MIN_TRUST_SCORE, newTrustScore - DVE_CONFIG.TRUST_DECREMENT);
+  }
+
+  console.log(`Updating trust score for ${anonymousUserId}: ${userTrust.trust_score} -> ${newTrustScore} (${isVerified ? 'verified' : 'rejected'})`);
+
+  await supabaseClient.from("user_trust_scores")
+    .update({
+      trust_score: newTrustScore,
+      total_reports: newTotalReports,
+      correct_reports: newCorrectReports,
+      incorrect_reports: newIncorrectReports,
+    })
+    .eq("anonymous_user_id", anonymousUserId);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -204,6 +249,11 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      // Update trust score for rejected reports
+      if (isRejected) {
+        await updateUserTrustScore(supabaseClient, report.anonymous_user_id, false);
+      }
+
       // Auto-verify high-scoring individual reports
       if (!isRejected && dveScore >= DVE_CONFIG.HIGH_SCORE_AUTO_VERIFY) {
         console.log(`High score auto-verify: ${dveScore} >= ${DVE_CONFIG.HIGH_SCORE_AUTO_VERIFY}`);
@@ -218,7 +268,10 @@ serve(async (req) => {
           verified_by_count: 1,
           last_verified_at: new Date().toISOString(),
         }, { onConflict: "station_id,fuel_type" });
-      } else {
+
+        // Update trust score for verified report
+        await updateUserTrustScore(supabaseClient, report.anonymous_user_id, true);
+      } else if (!isRejected) {
         // Run consensus check for lower-scoring reports
         const cutoffDate = new Date();
         cutoffDate.setHours(cutoffDate.getHours() - DVE_CONFIG.MAX_REPORT_AGE_HOURS);
@@ -248,6 +301,8 @@ serve(async (req) => {
 
               for (const r of fuelReports) {
                 await supabaseClient.from("crowdsourced_reports").update({ is_verified: true }).eq("id", r.id);
+                // Update trust score for verified reports through consensus
+                await updateUserTrustScore(supabaseClient, r.anonymous_user_id, true);
               }
             }
           }
@@ -306,6 +361,9 @@ serve(async (req) => {
             })
             .eq("id", report.id);
           
+          // Update trust score for rejected report
+          await updateUserTrustScore(supabaseClient, report.anonymous_user_id, false);
+          
           rejectedCount++;
           console.log(`Rejected report ${report.id} with score ${report.dve_score}`);
           continue;
@@ -325,6 +383,9 @@ serve(async (req) => {
             verified_by_count: 1,
             last_verified_at: new Date().toISOString(),
           }, { onConflict: "station_id,fuel_type" });
+
+          // Update trust score for verified report
+          await updateUserTrustScore(supabaseClient, report.anonymous_user_id, true);
 
           verifiedCount++;
           console.log(`Verified report ${report.id} with score ${report.dve_score}`);
@@ -362,6 +423,10 @@ serve(async (req) => {
               await supabaseClient.from("crowdsourced_reports")
                 .update({ is_verified: true })
                 .eq("id", r.id);
+              
+              // Update trust score for verified report through consensus
+              await updateUserTrustScore(supabaseClient, r.anonymous_user_id, true);
+              
               verifiedCount++;
             }
           }
