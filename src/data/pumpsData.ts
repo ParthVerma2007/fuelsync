@@ -1,7 +1,18 @@
+import petrolPumpsCSV from "./petrol-pumps.csv?raw";
+
 export interface PumpData {
   id: number;
+  pumpId: string;
   name: string;
+  brand: string;
   address: string;
+  review: string;
+  rating: number;
+  city: string;
+  state: string;
+  lat: number;
+  lon: number;
+  // Legacy fields for backward compatibility
   e20: boolean;
   e10: boolean;
   pure: boolean;
@@ -12,294 +23,73 @@ export interface PumpData {
   servicesRating: number;
   staffRating: number;
   evCharging: boolean;
-  lat?: number;
-  lon?: number;
 }
 
-export const pumpsData: PumpData[] = [
-  {
-    id: 1,
-    name: "Sarita Services",
-    address: "Survey No 25, 20, Mulshi, Wide DP Road, near Pudumjee Paper Mill, Thergaon, Pune, Pimpri-Chinchwad, Maharashtra 411033",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: false,
-    airPuncture: true,
-    servicesRating: 4,
-    staffRating: 5,
-    evCharging: false
-  },
-  {
-    id: 2,
-    name: "Hindustan Petrolpump",
-    address: "Survey No 17/1 Aundh, Road, Rathane, Kalewadi, Pimpri-Chinchwad, Pune, Maharashtra 411017",
-    e20: true,
-    e10: false,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: false,
-    airPuncture: false,
-    servicesRating: 2,
-    staffRating: 4,
-    evCharging: false
-  },
-  {
-    id: 3,
-    name: "Raghunanand",
-    address: "TATHAWADENIMBALKAR NAGAR, BRT Link Road, Pune, Maharashtra 411033",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: false,
-    airPuncture: true,
-    servicesRating: 3,
-    staffRating: 4,
-    evCharging: false
-  },
-  {
-    id: 4,
-    name: "Shell - Thergaon",
-    address: "38, Aundh - Ravet BRTS Rd, Gujar Nagar, Mangal Nagar, PCMC, Pune, Pimpri-Chinchwad, Maharashtra 411017",
-    e20: true,
-    e10: true,
-    pure: true,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 5,
-    staffRating: 5,
-    evCharging: false
-  },
-  {
-    id: 5,
-    name: "Hindustran Petrolpump",
-    address: "SN 64/2/2 & 1, Kalewadi Main Rd, Adinath Colony, Shrinagar, Pune, Pimpri-Chinchwad, Maharashtra 411017",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 3,
-    staffRating: 4,
-    evCharging: false
-  },
-  {
-    id: 6,
-    name: "Koeshwar Petroleum",
-    address: "JQ8R+X5F, Main Road, Adarsh Nagar, Kalewadi, Pimpri-Chinchwad, Maharashtra 411017",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: false,
-    airPuncture: true,
-    servicesRating: 3,
-    staffRating: 3,
-    evCharging: false
-  },
-  {
-    id: 7,
-    name: "Jaihind Highway Service Station",
-    address: "Chinchwad Station Rd, Anna Sahib Nagar, Chinchwad, Pune, Pimpri-Chinchwad, Maharashtra 411019",
-    e20: true,
-    e10: false,
-    pure: true,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 4,
-    staffRating: 3,
-    evCharging: true
-  },
-  {
-    id: 8,
-    name: "Indian Oil Shankar Kalat Nagar",
-    address: "S No 1/1, New Mumbai Bang, Western Express Hwy, Shankar Kalat Nagar, Wakad, Pune, Pimpri-Chinchwad, Maharashtra 411057",
-    e20: true,
-    e10: true,
-    pure: true,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 4,
-    staffRating: 5,
-    evCharging: false
-  },
-  {
-    id: 9,
-    name: "Shree Murari Petroleum",
-    address: "1, Choudhary Park, Shankar Kalat Nagar, Wakad, Pune, Pimpri-Chinchwad, Maharashtra 411057",
-    e20: true,
-    e10: false,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: false,
-    airPuncture: true,
-    servicesRating: 3,
-    staffRating: 4,
-    evCharging: false
-  },
-  {
-    id: 10,
-    name: "Shell Vishal Nagar",
-    address: "Akshaynagar Phase II, New DP Rd, Vishal Nagar, Pimple Nilakh, Pimpri-Chinchwad, Maharashtra 411027",
-    e20: true,
-    e10: true,
-    pure: true,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 5,
-    staffRating: 5,
-    evCharging: false
-  },
-  {
-    id: 11,
-    name: "Indian Oil Pimple Saudagar Netaji Chowk",
-    address: "S No 4/3A/2 Netaji Chowk, Pimple Saudagar, Pimple Colony, Aundh, Pimpri-Chinchwad, Maharashtra 411027",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: false,
-    airPuncture: false,
-    servicesRating: 3,
-    staffRating: 4,
-    evCharging: false
-  },
-  {
-    id: 12,
-    name: "Shell MIDC Pimpri",
-    address: "Chinchwad-Bhosari Rd, MIDC, Pimpri Colony, Pimpri-Chinchwad, Maharashtra 411019",
-    e20: true,
-    e10: true,
-    pure: true,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 5,
-    staffRating: 5,
-    evCharging: false
-  },
-  {
-    id: 13,
-    name: "Kamdhenu Nayara Petrol Pump",
-    address: "Nigdi Bhosari Rd, MIDC, Chinchwad, Pimpri-Chinchwad, Maharashtra 411019",
-    e20: true,
-    e10: true,
-    pure: true,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 4,
-    staffRating: 5,
-    evCharging: false
-  },
-  {
-    id: 14,
-    name: "Rathi CNG Katraj",
-    address: "74, Bharati Vidyapeeth Rd, Shriram Nagar, Katraj, Pune, Maharashtra 411046",
-    e20: false,
-    e10: false,
-    pure: false,
-    diesel: false,
-    cng: true,
-    washroom: true,
-    airPuncture: false,
-    servicesRating: 3,
-    staffRating: 4,
-    evCharging: false
-  },
-  {
-    id: 15,
-    name: "Hindustan Petroleum Purnangar",
-    address: "Plot No 1 Chikhali Road, Chikhali, opposite Tata Indica Gate, Purnanagar, Pimpri Colony, Pimpri-Chinchwad, Maharashtra 411019",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 3,
-    staffRating: 2,
-    evCharging: false
-  },
-  {
-    id: 16,
-    name: "Rajyog Petroleum",
-    address: "WALHEKARWADI,PCMC,PUNE, Walhekar Wadi Rd, Nigdi, Pune, Maharashtra 411033",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 4,
-    staffRating: 5,
-    evCharging: true
-  },
-  {
-    id: 17,
-    name: "Hindustan Petroleum Tathwade",
-    address: "Jadhav Wasti, Survey No 9/1, BRTS Road Ravet, Dange Chowk Rd, opposite Orchid School, Tathawade, Pune, Maharashtra 411033",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 2,
-    staffRating: 4,
-    evCharging: false
-  },
-  {
-    id: 18,
-    name: "Shiv Parvati CNG Pump",
-    address: "dange chowk Wakad, Wakad - Bhosari BRTS Rd, Thergaon, Pune, Maharashtra 411033",
-    e20: false,
-    e10: false,
-    pure: false,
-    diesel: false,
-    cng: true,
-    washroom: true,
-    airPuncture: false,
-    servicesRating: 4,
-    staffRating: 5,
-    evCharging: false
-  },
-  {
-    id: 19,
-    name: "Nakhate Petroleum Hindustan",
-    address: "Survey No 42, opposite Kinara Colony, Nakhate Vasti, Baderaj Colony, Rahatani, Pimpri-Chinchwad, Pune, Maharashtra 411017",
-    e20: true,
-    e10: true,
-    pure: false,
-    diesel: true,
-    cng: false,
-    washroom: true,
-    airPuncture: true,
-    servicesRating: 4,
-    staffRating: 4,
-    evCharging: false
+function parseCSV(csvText: string): PumpData[] {
+  const lines = csvText.trim().split("\n");
+  const pumps: PumpData[] = [];
+
+  // Skip header row
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // Parse CSV line (handle potential commas in values)
+    const values = parseCSVLine(line);
+    
+    if (values.length >= 9) {
+      const [pumpId, name, brand, review, rating, city, state, lat, lon] = values;
+      
+      pumps.push({
+        id: i,
+        pumpId: pumpId.trim(),
+        name: name.trim(),
+        brand: brand.trim(),
+        address: `${city.trim()}, ${state.trim()}`,
+        review: review.trim(),
+        rating: parseFloat(rating) || 4,
+        city: city.trim(),
+        state: state.trim(),
+        lat: parseFloat(lat),
+        lon: parseFloat(lon),
+        // Default values for legacy fields - these can be reported via DVE
+        e20: false,
+        e10: false,
+        pure: true, // Assume all have petrol
+        diesel: true, // Assume all have diesel
+        cng: false,
+        washroom: false,
+        airPuncture: false,
+        servicesRating: Math.round(parseFloat(rating) || 4),
+        staffRating: Math.round(parseFloat(rating) || 4),
+        evCharging: false,
+      });
+    }
   }
-];
+
+  return pumps;
+}
+
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+
+  return result;
+}
+
+export const pumpsData: PumpData[] = parseCSV(petrolPumpsCSV);
