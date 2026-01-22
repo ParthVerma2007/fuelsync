@@ -1,7 +1,7 @@
 import { PumpData } from "@/data/pumpsData";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { X, Fuel, Droplets, Battery, Wind, Star, MapPin, ShieldCheck, Users } from "lucide-react";
+import { X, Fuel, Droplets, Battery, Wind, Star, MapPin, ShieldCheck, Users, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VerifiedFuelInfo } from "@/services/stationService";
 
@@ -22,22 +22,44 @@ const PumpDetails = ({ pump, onClose, verifiedData }: PumpDetailsProps) => {
   const fuelTypes = [
     { available: pump.e10, label: "E10", key: "e10", color: "bg-[hsl(var(--e10-color))]", icon: <Droplets className="w-3 h-3" /> },
     { available: pump.e20, label: "E20", key: "e20", color: "bg-[hsl(var(--e20-color))]", icon: <Droplets className="w-3 h-3" /> },
-    { available: pump.pure, label: "Pure", key: "pure", color: "bg-[hsl(var(--pure-color))]", icon: <Fuel className="w-3 h-3" /> },
+    { available: pump.pure, label: "Petrol", key: "pure", color: "bg-[hsl(var(--pure-color))]", icon: <Fuel className="w-3 h-3" /> },
     { available: pump.diesel, label: "Diesel", key: "diesel", color: "bg-[hsl(var(--diesel-color))]", icon: <Fuel className="w-3 h-3" /> },
     { available: pump.cng, label: "CNG", key: "cng", color: "bg-[hsl(var(--cng-color))]", icon: <Wind className="w-3 h-3" /> },
     { available: pump.evCharging, label: "EV", key: "ev", color: "bg-[hsl(var(--ev-color))]", icon: <Battery className="w-3 h-3" /> },
   ];
+
+  // Get brand color
+  const getBrandColor = (brand: string) => {
+    switch (brand?.toLowerCase()) {
+      case "indian oil": return "bg-orange-500";
+      case "hp": case "hindustan petroleum": return "bg-green-600";
+      case "bharat petroleum": return "bg-blue-600";
+      case "reliance": return "bg-red-500";
+      case "shell": return "bg-yellow-500";
+      default: return "bg-muted";
+    }
+  };
 
   return (
     <Card className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 z-40 bg-card/95 backdrop-blur-md border-2 border-primary/30 shadow-[0_0_30px_hsl(var(--primary)/0.3)] animate-in slide-in-from-bottom duration-300">
       <div className="p-5 space-y-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className="text-xl font-bold text-fuel-glow mb-1">{pump.name}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-xl font-bold text-fuel-glow">{pump.name}</h3>
+              {pump.brand && (
+                <Badge className={`${getBrandColor(pump.brand)} text-white font-mono text-xs`}>
+                  {pump.brand}
+                </Badge>
+              )}
+            </div>
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
               <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-              <p className="line-clamp-2">{pump.address}</p>
+              <p className="line-clamp-2">{pump.city}, {pump.state}</p>
             </div>
+            {pump.pumpId && (
+              <p className="text-xs font-mono text-muted-foreground mt-1">ID: {pump.pumpId}</p>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -48,6 +70,13 @@ const PumpDetails = ({ pump, onClose, verifiedData }: PumpDetailsProps) => {
             <X className="w-4 h-4" />
           </Button>
         </div>
+
+        {/* Review section */}
+        {pump.review && (
+          <div className="bg-muted/50 rounded-lg p-3">
+            <p className="text-sm italic text-muted-foreground">"{pump.review}"</p>
+          </div>
+        )}
 
         <div>
           <p className="text-xs font-mono text-muted-foreground mb-2 uppercase tracking-wider">Available Fuels</p>
@@ -102,15 +131,15 @@ const PumpDetails = ({ pump, onClose, verifiedData }: PumpDetailsProps) => {
           <div className="flex items-center gap-2">
             <Star className="w-4 h-4 text-primary" />
             <div>
-              <p className="text-xs text-muted-foreground">Service</p>
-              <p className="font-bold text-foreground">{pump.servicesRating}/5</p>
+              <p className="text-xs text-muted-foreground">Rating</p>
+              <p className="font-bold text-foreground">{pump.rating}/5</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Star className="w-4 h-4 text-secondary" />
+            <Building2 className="w-4 h-4 text-secondary" />
             <div>
-              <p className="text-xs text-muted-foreground">Staff</p>
-              <p className="font-bold text-foreground">{pump.staffRating}/5</p>
+              <p className="text-xs text-muted-foreground">Brand</p>
+              <p className="font-bold text-foreground">{pump.brand || "Unknown"}</p>
             </div>
           </div>
         </div>

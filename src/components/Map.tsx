@@ -32,7 +32,7 @@ const Map = memo(({ pumps, onPumpClick, selectedPump, verifiedData = [] }: MapPr
     const initMap = () => {
       if (mapContainer.current && (window as any).L && !mapRef.current) {
         const L = (window as any).L;
-        const newMap = L.map(mapContainer.current).setView([18.5204, 73.8567], 12);
+        const newMap = L.map(mapContainer.current).setView([20.5937, 78.9629], 5); // Center on India
         L.tileLayer(
           `https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`,
           {
